@@ -6,6 +6,8 @@ window.addEventListener("load", () => {
   ctx.fillStyle = "white";
   ctx.lineWidth = 3;
   ctx.strokeStyle = "white";
+  ctx.font = "40px Helvetica";
+  ctx.textAlign = "center";
 
   class Player {
     constructor(game) {
@@ -176,6 +178,9 @@ window.addEventListener("load", () => {
       this.height = this.spriteHeight;
       this.spriteX;
       this.spriteY;
+      this.hatchTimer = 0;
+      this.hatchInterval = 5000;
+      this.markedForDeletion = false;
     }
 
     draw(context) {
@@ -194,10 +199,16 @@ window.addEventListener("load", () => {
         context.fill();
         context.restore();
         context.stroke();
+        const displayTimer = (this.hatchTimer * 0.001).toFixed(0);
+        context.fillText(
+          displayTimer,
+          this.collisionX,
+          this.collisionY - this.collisionRadius * 2.5
+        );
       }
     }
 
-    update() {
+    update(deltaTime) {
       this.spriteX = this.collisionX - this.width * 0.5;
       this.spriteY = this.collisionY - this.height * 0.5 - 30;
 
@@ -217,6 +228,75 @@ window.addEventListener("load", () => {
           this.collisionY = object.collisionY + (sumOfRadii + 1) * unit_y;
         }
       });
+
+      if (this.hatchTimer > this.hatchInterval) {
+        this.game.hatchlings.push(
+          new Larva(this.game, this.collisionX, this.collisionY)
+        );
+        this.markedForDeletion = true;
+        this.game.removeGameObjects();
+      } else {
+        this.hatchTimer += deltaTime;
+      }
+    }
+  }
+
+  class Larva {
+    constructor(game, x, y) {
+      this.game = game;
+      this.collisionX = x;
+      this.collisionY = y;
+      this.collisionRadius = 30;
+      this.image = document.getElementById("larva");
+      this.spriteWidth = 150;
+      this.spriteHeight = 150;
+      this.width = this.spriteWidth;
+      this.height = this.spriteHeight;
+      this.spriteX;
+      this.spriteY;
+      this.speedY = 1 + Math.random();
+      this.markedForDeletion = false;
+    }
+
+    draw(context) {
+      context.drawImage(
+        this.image,
+        0,
+        0,
+        this.spriteWidth,
+        this.spriteHeight,
+        this.spriteX,
+        this.spriteY,
+        this.width,
+        this.height
+      );
+
+      if (this.game.debug) {
+        context.beginPath();
+        context.arc(
+          this.collisionX,
+          this.collisionY,
+          this.collisionRadius,
+          0,
+          Math.PI * 2
+        );
+        context.save();
+        context.globalAlpha = 0.5;
+        context.fill();
+        context.restore();
+        context.stroke();
+      }
+    }
+
+    update() {
+      this.collisionY -= this.speedY;
+      this.spriteX = this.collisionX - this.width * 0.5;
+      this.spriteY = this.collisionY - this.height * 0.5 - 50;
+
+      if (this.collisionY < this.game.topMargin) {
+        this.markedForDeletion = true;
+        this.game.removeGameObjects();
+      }
     }
   }
 
@@ -303,6 +383,7 @@ window.addEventListener("load", () => {
       this.maxEggs = 20;
       this.eggs = [];
       this.enemies = [];
+      this.hatchlings = [];
       this.gameObjects = [];
       this.mouse = {
         x: this.width * 0.5,
@@ -342,13 +423,14 @@ window.addEventListener("load", () => {
           ...this.eggs,
           ...this.obstacles,
           ...this.enemies,
+          ...this.hatchlings,
         ];
         this.gameObjects.sort((a, b) => {
           return a.collisionY - b.collisionY;
         });
         this.gameObjects.forEach((object) => {
           object.draw(context);
-          object.update();
+          object.update(deltaTime);
         });
         this.timer = 0;
       }
@@ -376,6 +458,13 @@ window.addEventListener("load", () => {
 
     addEnemy() {
       this.enemies.push(new Enemy(this));
+    }
+
+    removeGameObjects() {
+      this.eggs = this.eggs.filter((egg) => !egg.markedForDeletion);
+      this.hatchlings = this.hatchlings.filter(
+        (larva) => !larva.markedForDeletion
+      );
     }
 
     init() {
