@@ -652,7 +652,6 @@ window.addEventListener("load", () => {
         y: this.height * 0.5,
         pressed: false,
       };
-      this.winningScore = this.score;
       this.score = 0;
       this.lostHatchlings = 0;
       this.gameOver = false;
